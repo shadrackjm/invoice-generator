@@ -11,6 +11,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
         then: function(){
             Route::middleware('web')->group(__DIR__.'/../routes/invoice.php');
+            Route::middleware('web')->group(__DIR__.'/../routes/auth.php');
         }
     )
     ->withMiddleware(function (Middleware $middleware): void {

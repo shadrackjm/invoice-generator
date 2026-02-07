@@ -2,6 +2,7 @@
 
 use Livewire\Component;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Schema;
@@ -276,6 +277,63 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
         return $invoice;
     }
 
+    protected function createInvoice(): Invoice
+    {
+        $data = $this->data;
+
+        $invoice = Invoice::create([
+            'user_id' => Auth::id(),
+            'invoice_number' => (new Invoice())->generateInvoiceNumber(),
+            'company_name' => $data['company_name'],
+            'company_address' => $data['company_address'] ?? null,
+            'company_email' => $data['company_email'] ?? null,
+            'company_phone' => $data['company_phone'] ?? null,
+            'client_name' => $data['client_name'],
+            'client_address' => $data['client_address'] ?? null,
+            'client_email' => $data['client_email'] ?? null,
+            'client_phone' => $data['client_phone'] ?? null,
+            'invoice_date' => $data['invoice_date'],
+            'due_date' => $data['due_date'],
+            'notes' => $data['notes'] ?? null,
+            'terms' => $data['terms'] ?? null,
+            'subtotal' => $this->getSubtotal(),
+            'tax_rate' => $data['tax_rate'] ?? 0,
+            'tax_amount' => $this->getTaxAmount(),
+            'total' => $this->getTotal(),
+            'template_id' => $data['template_id'] ?? 1,
+            'status' => 'draft',
+        ]);
+
+        foreach ($data['items'] ?? [] as $index => $item) {
+            $invoice->items()->create([
+                'description' => $item['description'],
+                'quantity' => $item['quantity'],
+                'unit_price' => $item['unit_price'],
+                'total' => $item['quantity'] * $item['unit_price'],
+                'sort_order' => $index,
+            ]);
+        }
+
+        return $invoice;
+    }
+
+    #[On('auth-success')]
+    public function handleAuthSuccess(): void
+    {
+        $pendingAction = session()->pull('pending_action');
+        $invoiceData = session()->pull('invoice_data');
+
+        if ($invoiceData) {
+            $this->data = $invoiceData;
+        }
+
+        if ($pendingAction === 'download') {
+            $this->handleDownload();
+        } elseif ($pendingAction === 'email') {
+            $this->handleEmail();
+        }
+    }
+
     public function with(): array
     {
         return [
@@ -285,6 +343,34 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
             'total' => $this->getTotal(),
             'previewInvoice' => $this->getPreviewInvoice(),
         ];
+    }
+
+    public function handleDownload(): void
+    {
+        if (!Auth::check()) {
+            session()->put('pending_action', 'download');
+            session()->put('invoice_data', $this->data);
+            $this->dispatch('open-auth-modal', mode: 'register');
+            return;
+        }
+
+        $invoice = $this->createInvoice();
+        $this->dispatch('notify', message: 'Preparing download...');
+        // PDF download logic in Section 7
+    }
+
+    public function handleEmail(): void
+    {
+        if (!Auth::check()) {
+            session()->put('pending_action', 'email');
+            session()->put('invoice_data', $this->data);
+            $this->dispatch('open-auth-modal', mode: 'register');
+            return;
+        }
+
+        $invoice = $this->createInvoice();
+        $this->dispatch('notify', message: 'Sending email...');
+        // Email logic in Section 7
     }
 };
 ?>
@@ -326,17 +412,17 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
                 </div>
 
                 <div class="mt-6 space-y-2">
-                    <button type="button" wire:loading.attr="disabled"
+                    <button type="button" wire:click="handleDownload" wire:loading.attr="disabled"
                         wire:loading.class="opacity-50 cursor-not-allowed"
                         class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition">
-                        <span wire:loading.remove>Download PDF</span>
-                        <span wire:loading>Processing...</span>
+                        <span wire:loading.remove wire:target="handleDownload">Download PDF</span>
+                        <span wire:loading wire:target="handleDownload">Processing...</span>
                     </button>
-                    <button type="button" wire:loading.attr="disabled"
+                    <button type="button" wire:click="handleEmail" wire:loading.attr="disabled"
                         wire:loading.class="opacity-50 cursor-not-allowed"
                         class="w-full bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 px-4 rounded-lg border-2 border-gray-300 transition">
-                        <span wire:loading.remove>Send via Email</span>
-                        <span wire:loading>Processing...</span>
+                        <span wire:loading.remove wire:target="handleEmail">Send via Email</span>
+                        <span wire:loading wire:target="handleEmail">Processing...</span>
                     </button>
                 </div>
             </div>
@@ -370,4 +456,7 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
             </div>
         </div>
     </div>
+
+    {{-- Auth modal --}}
+    <livewire:auth-modal />
 </div>

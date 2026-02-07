@@ -26,13 +26,26 @@
                 </div>
                 <div class="flex items-center space-x-4">
                     @auth
-                        <a href="{{ route('filament.admin.pages.dashboard') }}" class="text-gray-700 hover:text-gray-900">
+                        <span class="text-sm text-gray-600">{{ Auth::user()->name }}</span>
+                        <a href="{{ route('filament.admin.pages.dashboard') }}"
+                            class="text-gray-700 hover:text-gray-900 font-medium">
                             Dashboard
                         </a>
+                        <form method="POST" action="{{ route('logout') }}" class="inline">
+                            @csrf
+                            <button type="submit" class="text-gray-700 hover:text-gray-900">
+                                Sign Out
+                            </button>
+                        </form>
                     @else
-                        <a href="#" class="text-gray-700 hover:text-gray-900">
+                        <button type="button" onclick="Livewire.dispatch('open-auth-modal', { mode: 'login' })"
+                            class="text-gray-700 hover:text-gray-900 font-medium">
                             Sign In
-                        </a>
+                        </button>
+                        <button type="button" onclick="Livewire.dispatch('open-auth-modal', { mode: 'register' })"
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium">
+                            Sign Up
+                        </button>
                     @endauth
                 </div>
             </div>
@@ -45,6 +58,18 @@
 
     @filamentScripts
     @livewireScripts
+    <div x-data="{ 
+            show: false, 
+            message: '',
+            showNotification(msg) {
+                this.message = msg;
+                this.show = true;
+                setTimeout(() => this.show = false, 3000);
+            }
+        }" x-on:notify.window="showNotification($event.detail.message)" x-show="show" x-transition
+        class="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50"
+        style="display: none;" x-text="message">
+    </div>
 </body>
 
 </html>
