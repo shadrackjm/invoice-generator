@@ -28,19 +28,36 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
 
     public function mount(): void
     {
-        $this->form->fill([
-            'template_id' => 1,
-            'invoice_date' => now()->format('Y-m-d'),
-            'due_date' => now()->addDays(30)->format('Y-m-d'),
-            'tax_rate' => 10,
-            'items' => [
-                [
-                    'description' => '',
-                    'quantity' => 1,
-                    'unit_price' => 0,
-                ]
-            ],
-        ]);
+        $savedData = session()->pull('invoice_data');
+
+        if ($savedData) {
+            $this->form->fill($savedData);
+        } else {
+            $this->form->fill([
+                'template_id' => 1,
+                'invoice_date' => now()->format('Y-m-d'),
+                'due_date' => now()->addDays(30)->format('Y-m-d'),
+                'tax_rate' => 10,
+                'items' => [
+                    [
+                        'description' => '',
+                        'quantity' => 1,
+                        'unit_price' => 0,
+                    ]
+                ],
+            ]);
+        }
+
+        // handle pending action after auth redirect
+        if(Auth::check()){
+            $pendingAction = session()->pull('pending_action');
+            if ($pendingAction === 'download') {
+                $this->handleDownload();
+            }elseif ($pendingAction === 'email') {
+                $this->handleEmail();
+            }
+        }
+
     }
 
     // the form
@@ -457,6 +474,5 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
         </div>
     </div>
 
-    {{-- Auth modal --}}
-    <livewire:auth-modal />
+    
 </div>

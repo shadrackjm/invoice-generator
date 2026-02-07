@@ -60,9 +60,8 @@ new class extends Component
         if (Auth::attempt(['email' => $this->email, 'password' => $this->password], $this->remember)) {
             session()->regenerate();
             
-            $this->dispatch('notify', message: 'Welcome back, ' . Auth::user()->name . '!');
-            $this->dispatch('auth-success');
-            $this->close();
+            session()->flash('notify','Welcome back,' . Auth::user()->name . '!');
+            $this->redirect(request()->header('Referer', '/'), navigate: false);
         } else {
             $this->addError('email', 'The provided credentials do not match our records.');
         }
@@ -88,9 +87,7 @@ new class extends Component
         Auth::login($user, true);
         session()->regenerate();
         
-        $this->dispatch('notify', message: 'Account created successfully!');
-        $this->dispatch('auth-success');
-        $this->close();
+        session()->flash('notify','Account created successfully!');
     }
 }; ?>
 

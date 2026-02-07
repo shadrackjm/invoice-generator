@@ -58,15 +58,20 @@
 
     @filamentScripts
     @livewireScripts
-    <div x-data="{ 
-            show: false, 
+    {{-- Auth modal --}}
+    <livewire:auth-modal />
+    <div x-data="{
+            show: false,
             message: '',
             showNotification(msg) {
                 this.message = msg;
                 this.show = true;
                 setTimeout(() => this.show = false, 3000);
             }
-        }" x-on:notify.window="showNotification($event.detail.message)" x-show="show" x-transition
+        }"
+        x-on:notify.window="showNotification($event.detail.message)"
+        x-init="@if(session('notify')) showNotification('{{ session('notify') }}') @endif"
+        x-show="show" x-transition
         class="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50"
         style="display: none;" x-text="message">
     </div>
