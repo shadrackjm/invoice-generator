@@ -143,13 +143,14 @@ new class extends Component
                 {{-- Forms --}}
                 @if($mode === 'login')
                     {{-- Login Form --}}
-                    <form wire:submit="login" class="space-y-4">
+                    <form wire:submit="login" wire:key="login-form" class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
                                 Email Address
                             </label>
                             <input 
                                 type="email"
+                                id="login-email"
                                 wire:model="email"
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 placeholder="your@email.com"
@@ -167,6 +168,7 @@ new class extends Component
                             </label>
                             <input 
                                 type="password"
+                                id="login-password"
                                 wire:model="password"
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 placeholder="••••••••"
@@ -180,6 +182,7 @@ new class extends Component
                         <div class="flex items-center">
                             <input 
                                 type="checkbox"
+                                id="login-checkbox"
                                 wire:model="remember"
                                 class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                 id="remember"
@@ -201,13 +204,14 @@ new class extends Component
                     </form>
                 @else
                     {{-- Registration Form --}}
-                    <form wire:submit="register" class="space-y-4">
+                    <form wire:submit="register" wire:key="register-form" class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
                                 Full Name
                             </label>
                             <input 
                                 type="text"
+                                id="register-name"
                                 wire:model="name"
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 placeholder="John Doe"
@@ -225,6 +229,7 @@ new class extends Component
                             </label>
                             <input 
                                 type="email"
+                                id="register-email"
                                 wire:model="email"
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 placeholder="your@email.com"
@@ -241,6 +246,7 @@ new class extends Component
                             </label>
                             <input 
                                 type="password"
+                                id="register-password"
                                 wire:model="password"
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 placeholder="••••••••"
@@ -258,6 +264,7 @@ new class extends Component
                             </label>
                             <input 
                                 type="password"
+                                id="register-confirm-password"
                                 wire:model="password_confirmation"
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 placeholder="••••••••"
@@ -268,6 +275,7 @@ new class extends Component
                         <div class="flex items-start">
                             <input 
                                 type="checkbox"
+                                id="register-checkbox"
                                 wire:model="terms"
                                 class="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                 id="terms"
