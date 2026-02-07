@@ -15,6 +15,8 @@ use Filament\Forms\Components\Select;
 use App\Models\Template;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
+use App\Models\Invoice;
+use App\Models\InvoiceItem;
 
 new #[Layout('layouts.public')] class extends Component implements HasActions, HasSchemas {
     use InteractsWithActions;
@@ -56,24 +58,28 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
                                     ->label('Company Name')
                                     ->required()
                                     ->maxLength(255)
-                                    ->placeholder('Your Company Name'),
+                                    ->placeholder('Your Company Name')
+                                    ->live(debounce: 500),
 
                                 Textarea::make('company_address')
                                     ->label('Address')
                                     ->rows(3)
-                                    ->placeholder('123 Business Street, City, Country'),
+                                    ->placeholder('123 Business Street, City, Country')
+                                    ->live(debounce: 500),
 
                                 Grid::make(2)
                                     ->schema([
                                         TextInput::make('company_email')
                                             ->label('Email')
                                             ->email()
-                                            ->placeholder('hello@company.com'),
+                                            ->placeholder('hello@company.com')
+                                            ->live(onBlur: true),
 
                                         TextInput::make('company_phone')
                                             ->label('Phone')
                                             ->tel()
-                                            ->placeholder('+1 (555) 123-4567'),
+                                            ->placeholder('+1 (555) 123-4567')
+                                            ->live(onBlur: true),
                                     ]),
                             ])
                     ])->columnSpan(1),
@@ -86,24 +92,28 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
                             ->label('Client Name')
                             ->required()
                             ->maxLength(255)
-                            ->placeholder('Client Company Name'),
+                            ->placeholder('Client Company Name')
+                            ->live(debounce: 500),
 
                         Textarea::make('client_address')
                             ->label('Address')
                             ->rows(3)
-                            ->placeholder('456 Client Avenue, City, Country'),
+                            ->placeholder('456 Client Avenue, City, Country')
+                            ->live(debounce: 500),
 
                         Grid::make(2)
                             ->schema([
                                 TextInput::make('client_email')
                                     ->label('Email')
                                     ->email()
-                                    ->placeholder('contact@client.com'),
+                                    ->placeholder('contact@client.com')
+                                    ->live(debounce: 500),
 
                                 TextInput::make('client_phone')
                                     ->label('Phone')
                                     ->tel()
-                                    ->placeholder('+1 (555) 987-6543'),
+                                    ->placeholder('+1 (555) 987-6543')
+                                    ->live(debounce: 500),
                             ]),
                     ])
                     ->columnSpan(1),
@@ -140,7 +150,8 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
                                             ->label('Description')
                                             ->required()
                                             ->placeholder('Service or product description')
-                                            ->columnSpan(2),
+                                            ->columnSpan(2)
+                                            ->live(debounce: 500),
 
                                         TextInput::make('quantity')
                                             ->label('Quantity')
@@ -176,24 +187,26 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
                             ->label('Notes')
                             ->rows(3)
                             ->placeholder('Additional notes or special instructions')
-                            ->columnSpan(1),
+                            ->columnSpan(1)
+                            ->live(debounce: 500),
 
                         Textarea::make('terms')
                             ->label('Payment Terms')
                             ->rows(3)
                             ->placeholder('Payment is due within 30 days')
-                            ->columnSpan(1),
+                            ->columnSpan(1)
+                            ->live(debounce: 500),
                     ]),
 
-                Select::make('template_id')
-                    ->label('Invoice Template')
-                    ->options(Template::active()->pluck('name', 'id'))
-                    ->default(1)
-                    ->required()
-                    ->live()
-                    ->afterStateUpdated(function ($state) {
-                        $this->selectedTemplateId = false;
-                    })
+                // Select::make('template_id')
+                //     ->label('Invoice Template')
+                //     ->options(Template::active()->pluck('name', 'id'))
+                //     ->default(1)
+                //     ->required()
+                //     ->live()
+                //     ->afterStateUpdated(function ($state) {
+                //         $this->selectedTemplateId = false;
+                //     })
 
             ])
             ->statePath('data');
@@ -219,6 +232,50 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
         return $this->getSubtotal() + $this->getTaxAmount();
     }
 
+    public function getPreviewInvoice()
+    {
+        $data = $this->data;
+
+        $invoice = new Invoice([
+            'invoice_number' => 'INV-' . now()->year . '-XXXX',
+            'company_name' => $data['company_name'] ?? 'Your Company',
+            'company_address' => $data['company_address'] ?? null,
+            'company_email' => $data['company_email'] ?? null,
+            'company_phone' => $data['company_phone'] ?? null,
+            'client_name' => $data['client_name'] ?? 'Client Name',
+            'client_address' => $data['client_address'] ?? null,
+            'client_email' => $data['client_email'] ?? null,
+            'client_phone' => $data['client_phone'] ?? null,
+            'invoice_date' => isset($data['invoice_date']) ? Carbon\Carbon::parse($data['invoice_date']) : now(),
+            'due_date' => isset($data['due_date']) ? Carbon\Carbon::parse($data['due_date']) : now()->addDays(30),
+            'notes' => $data['notes'] ?? null,
+            'terms' => $data['terms'] ?? null,
+            'subtotal' => $this->getSubtotal(),
+            'tax_rate' => $data['tax_rate'] ?? 0,
+            'tax_amount' => $this->getTaxAmount(),
+            'total' => $this->getTotal(),
+            'template_id' => $data['template_id'] ?? 1,
+        ]);
+
+        //set the template relationship
+        $invoice->setRelation('template', Template::find($data['template_id'] ?? 1));
+
+        // create temporary invoice items
+        $items = collect($data['items'] ?? [])->map(function ($item, $index) {
+            return new InvoiceItem([
+                'description' => $item['description'] ?? '',
+                'quantity' => $item['quantity'] ?? 1,
+                'unit_price' => $item['unit_price'] ?? 0,
+                'total' => ($item['quantity'] ?? 1) * ($item['unit_price'] ?? 0),
+                'sort_order' => $index,
+            ]);
+        });
+
+        $invoice->setRelation('items', $items);
+
+        return $invoice;
+    }
+
     public function with(): array
     {
         return [
@@ -226,6 +283,7 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
             'subtotal' => $this->getSubtotal(),
             'taxAmount' => $this->getTaxAmount(),
             'total' => $this->getTotal(),
+            'previewInvoice' => $this->getPreviewInvoice(),
         ];
     }
 };
@@ -237,9 +295,9 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
         <p class="text-gray-600">Fill in the details below to generate your professional invoice</p>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {{-- left column: form --}}
-        <div class="space-y-6">
+        <div class="space-y-6 order-1 xl:order-0">
             <div class="bg-white rounded-lg shadow-sm p-6">
                 <form wire:submit="save">
                     {{ $this->form }}
@@ -268,16 +326,13 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
                 </div>
 
                 <div class="mt-6 space-y-2">
-                    <button type="button" 
-                        wire:loading.attr="disabled"
+                    <button type="button" wire:loading.attr="disabled"
                         wire:loading.class="opacity-50 cursor-not-allowed"
                         class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition">
                         <span wire:loading.remove>Download PDF</span>
                         <span wire:loading>Processing...</span>
                     </button>
-                    <button 
-                        type="button" 
-                        wire:loading.attr="disabled"
+                    <button type="button" wire:loading.attr="disabled"
                         wire:loading.class="opacity-50 cursor-not-allowed"
                         class="w-full bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 px-4 rounded-lg border-2 border-gray-300 transition">
                         <span wire:loading.remove>Send via Email</span>
@@ -287,12 +342,30 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
             </div>
         </div>
 
-        {{-- Right column: Preview --}}
-        <div class="space-y-6">
-            <div class="bg-white rounded-lg shadow-sm p-4">
-                <div class="text-center py-8 text-gray-500">
-                    <p class="text-lg font-semibold mb-2">Live Preview</p>
-                    <p class="text-sm">Preview will appear here as you fill the form</p>
+        {{-- Right Column: Preview --}}
+        <div class="space-y-6 xl:order-0 xl:sticky xl:top-6 xl:self-start">
+
+            {{-- Template Selector --}}
+            <x-template-selector :templates="App\Models\Template::active()->get()"
+                :selectedId="$this->data['template_id']" />
+            {{-- preview --}}
+            <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div class="bg-gray-50 border-b border-gray-200 px-4 py-3 flex justify-between items-center">
+                    <h3 class="font-semibold text-gray-700">Live Preview</h3>
+                    <span class="text-xs text-gray-500">Updates as you type</span>
+                </div>
+
+                <div class="p-4 bg-gray-100 relative">
+                    {{-- Loading Overlay --}}
+                    <div wire:loading wire:target="data.company_name,data.client_name,data.items,data.template_id"
+                        class="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-10 rounded">
+                        <div class="bg-white rounded-lg shadow-lg px-4 py-2">
+                            <span class="text-sm text-gray-600">Updating preview...</span>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded shadow-sm" style="transform: scale(0.85); transform-origin: top;">
+                        <x-invoice-renderer :invoice="$previewInvoice" />
+                    </div>
                 </div>
             </div>
         </div>

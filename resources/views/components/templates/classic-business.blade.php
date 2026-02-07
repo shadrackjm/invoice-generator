@@ -130,8 +130,8 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($invoice->items as $index => $item)
-                    <tr class="{{ $index % 2 === 0 ? 'bg-gray-50' : 'bg-white' }}">
+                @foreach($invoice->items as $item)
+                    <tr class="{{ $loop->even ? 'bg-gray-50' : 'bg-white' }}">
                         <td class="py-3 px-4 text-gray-800">{{ $item->description }}</td>
                         <td class="py-3 px-4 text-center text-gray-600">{{ $item->quantity }}</td>
                         <td class="py-3 px-4 text-right text-gray-600">
