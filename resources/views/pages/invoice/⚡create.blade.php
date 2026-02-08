@@ -19,6 +19,8 @@ use Filament\Actions\Contracts\HasActions;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Services\InvoicePdfService;
+use App\Mail\InvoiceMail;
+use Illuminate\Support\Facades\Mail;
 
 new #[Layout('layouts.public')] class extends Component implements HasActions, HasSchemas {
     use InteractsWithActions;
@@ -411,8 +413,8 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
 
         $invoice = $this->createInvoice();
         $this->dispatch('notify', message: 'Preparing download...');
-        
-        $this->redirect(route('invoice.download',$invoice), navigate: false);
+
+        $this->redirect(route('invoice.download', $invoice), navigate: false);
     }
 
     public function handleEmail(): void
@@ -431,7 +433,39 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
 
         $invoice = $this->createInvoice();
         $this->dispatch('notify', message: 'Sending email...');
-        // Email logic in Section 7
+        // validate client email exists
+        if (!$invoice->client_email) {
+            $this->dispatch('notify', message: 'Client email is required to send invoice');
+            return;
+        }
+
+        // send mail
+        Mail::to($invoice->client_email)->queue(new InvoiceMail($invoice));
+
+        // clean up temp file
+        $tempPath = storage_path('app/temp/invoice-' . $invoice->invoice_number . '.pdf');
+        if (file_exists($tempPath)) {
+            unlink($tempPath);
+        }
+
+        // update invoice status
+        $invoice->update(['status' => 'sent']);
+
+        $this->dispatch('notify', message: 'Invoice sent successfully to ' . $invoice->client_email);
+    }
+
+    public function handlePrint(): void
+    {
+        if (!Auth::check()) {
+            session()->put('pending_action', 'print');
+            session()->put('invoice_data', $this->data);
+            $this->dispatch('open-auth-modal', mode: 'register');
+            return;
+        }
+
+        $invoice = $this->createInvoice();
+
+        $this->dispatch('open-print-window', url: route('invoice.print', $invoice));
     }
 };
 ?>
@@ -479,6 +513,12 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
                         <span wire:loading.remove wire:target="handleDownload">Download PDF</span>
                         <span wire:loading wire:target="handleDownload">Processing...</span>
                     </button>
+                    <button type="button" wire:click="handlePrint" wire:loading.attr="disabled"
+                        wire:loading.class="opacity-50 cursor-not-allowed"
+                        class="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg transition">
+                        <span wire:loading.remove wire:target="handleDownload">Print Invoice</span>
+                        <span wire:loading wire:target="handleDownload">Processing...</span>
+                    </button>
                     <button type="button" wire:click="handleEmail" wire:loading.attr="disabled"
                         wire:loading.class="opacity-50 cursor-not-allowed"
                         class="w-full bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 px-4 rounded-lg border-2 border-gray-300 transition">
@@ -518,5 +558,7 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
         </div>
     </div>
 
+    <div class="space-y-6" x-data
+        x-on:open-print-window.window="window.open($event.detail.url, '_blank', 'width=1024,height=768')"></div>
 
 </div>

@@ -18,3 +18,12 @@ Route::get('/invoice/{invoice}/download', function (Invoice $invoice) {
     $pdfService = new InvoicePdfService();
     return $pdfService->download($invoice);
 })->middleware('auth')->name('invoice.download');
+
+Route::get('/invoice/{invoice}/print', function (Invoice $invoice) {
+    // Check authorization
+    if ($invoice->user_id !== Auth::id()) {
+        abort(403);
+    }
+    
+    return view('invoice-print', compact('invoice'));
+})->middleware('auth')->name('invoice.print');

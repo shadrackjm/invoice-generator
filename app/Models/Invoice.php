@@ -33,6 +33,7 @@ class Invoice extends Model
         'total',
         'status',
         'template_id',
+        'pdf_path',
     ];
     protected $casts = [
         'invoice_date' => 'date',
