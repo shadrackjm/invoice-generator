@@ -23,6 +23,13 @@ class InvoicesTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->headerActions([
+                Action::make('create')
+                    ->label('Create Invoice')
+                    ->icon('heroicon-o-plus')
+                    ->url(route('create-invoice'))
+                    ->openUrlInNewTab(),
+            ])
             ->columns([
                 TextColumn::make('invoice_number')
                     ->label('Invoice #')
@@ -77,6 +84,35 @@ class InvoicesTable
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
+                Action::make('markPaid')
+                    ->label('Mark Paid')
+                    ->icon('heroicon-o-check-circle')
+                    ->requiresConfirmation()
+                    ->action(function (Invoice $record) {
+                        $record->update(['status' => 'paid']);
+
+                        Notification::make()
+                            ->title('Invoice marked as paid')
+                            ->success()
+                            ->send();
+                    })
+                    ->visible(fn(Invoice $record): bool => $record->status !== 'paid')
+                    ->color('success'),
+                Action::make('markCancelled')
+                    ->label('Cancel')
+                    ->icon('heroicon-o-x-circle')
+                    ->requiresConfirmation()
+                    ->action(function (Invoice $record) {
+                        $record->update(['status' => 'cancelled']);
+
+                        Notification::make()
+                            ->title('Invoice cancelled')
+                            ->body('Status updated to cancelled')
+                            ->success()
+                            ->send();
+                    })
+                    ->visible(fn(Invoice $record): bool => $record->status !== 'cancelled')
+                    ->color('danger'),
                 Action::make('download')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->url(fn(Invoice $record): string => route('invoice.download', $record))
