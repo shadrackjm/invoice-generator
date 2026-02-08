@@ -18,6 +18,7 @@ use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Services\InvoicePdfService;
 
 new #[Layout('layouts.public')] class extends Component implements HasActions, HasSchemas {
     use InteractsWithActions;
@@ -49,15 +50,17 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
         }
 
         // handle pending action after auth redirect
-        if(Auth::check()){
+        if (Auth::check()) {
             $pendingAction = session()->pull('pending_action');
-            if ($pendingAction === 'download') {
-                $this->handleDownload();
-            }elseif ($pendingAction === 'email') {
-                $this->handleEmail();
+
+            if ($pendingAction && $this->validateInvoiceData()) {
+                if ($pendingAction === 'download') {
+                    $this->handleDownload();
+                } elseif ($pendingAction === 'email') {
+                    $this->handleEmail();
+                }
             }
         }
-
     }
 
     // the form
@@ -334,6 +337,32 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
         return $invoice;
     }
 
+    protected function validateInvoiceData(): bool
+    {
+        $data = $this->data;
+
+        if (empty($data['company_name']) || empty($data['client_name'])) {
+            return false;
+        }
+
+        if (empty($data['invoice_date']) || empty($data['due_date'])) {
+            return false;
+        }
+
+        $items = $data['items'] ?? [];
+        if (empty($items)) {
+            return false;
+        }
+
+        foreach ($items as $item) {
+            if (empty($item['description']) || empty($item['quantity'] || empty($item['unit_price']))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     #[On('auth-success')]
     public function handleAuthSuccess(): void
     {
@@ -344,11 +373,14 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
             $this->data = $invoiceData;
         }
 
-        if ($pendingAction === 'download') {
-            $this->handleDownload();
-        } elseif ($pendingAction === 'email') {
-            $this->handleEmail();
+        if ($pendingAction && $this->validateInvoiceData()) {
+            if ($pendingAction === 'download') {
+                $this->handleDownload();
+            } elseif ($pendingAction === 'email') {
+                $this->handleEmail();
+            }
         }
+
     }
 
     public function with(): array
@@ -364,6 +396,12 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
 
     public function handleDownload(): void
     {
+
+        if (!$this->validateInvoiceData()) {
+            $this->form->validate();
+            return;
+        }
+
         if (!Auth::check()) {
             session()->put('pending_action', 'download');
             session()->put('invoice_data', $this->data);
@@ -373,11 +411,17 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
 
         $invoice = $this->createInvoice();
         $this->dispatch('notify', message: 'Preparing download...');
-        // PDF download logic in Section 7
+        
+        $this->redirect(route('invoice.download',$invoice), navigate: false);
     }
 
     public function handleEmail(): void
     {
+        if (!$this->validateInvoiceData()) {
+            $this->form->validate();
+            return;
+        }
+
         if (!Auth::check()) {
             session()->put('pending_action', 'email');
             session()->put('invoice_data', $this->data);
@@ -474,5 +518,5 @@ new #[Layout('layouts.public')] class extends Component implements HasActions, H
         </div>
     </div>
 
-    
+
 </div>
